@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>資料作成システム (クリーンホワイト版)</title>
+  <!-- Google Fonts: Inter & Outfit & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+  <!-- JSZip (PPTX/DOCX 解凍用) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- js-yaml -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+  <!-- PptxGenJS -->
+  <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
+  <!-- PDF.js (PDFデコード・テキスト抽出用) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .slide-aspect-ratio {
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen selection:bg-indigo-500 selection:text-white antialiased">
+
+  <!-- Header -->
+  <header class="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md text-white">
+          <i data-lucide="presentation" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900 font-outfit">
+            資料作成システム
+          </h1>
+          <p class="text-xs text-slate-500 font-medium">テキストや添付ファイルからプレゼンスライドを自動デザイン</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span id="active-provider-badge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          ● システム準備完了
+        </span>
+        <button id="btn-show-settings" title="設定" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-colors flex items-center gap-1.5 text-xs font-bold">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">設定</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Left Column: 基本設定 ＆ デザイン選択 (5 Cols) -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- 基本情報 & 関連ファイル -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="edit-3" class="w-4 h-4 text-indigo-600"></i> 1. 資料の作成内容・ファイルの入力
+            </h2>
+            <button id="btn-reset-form" class="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i> リセット
+            </button>
+          </div>
+
+          <!-- 解析通知バナー -->
+          <div id="auto-analyze-status" class="hidden p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-900 space-y-1 shadow-sm">
+            <div class="flex items-center gap-2 font-bold">
+              <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600 animate-spin"></i>
+              <span id="auto-analyze-msg">添付資料から文章を読み込み中...</span>
+            </div>
+          </div>
+
+          <form id="dynamic-form" class="space-y-4">
+            <!-- JSにより自動生成されます -->
+          </form>
+        </section>
+
+        <!-- トンマナ (デザインスタイル・文体) -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="palette" class="w-4 h-4 text-indigo-600"></i> 2. デザインスタイル（トンマナ）を選択
+            </h2>
+            <button id="btn-add-tone" class="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition-all">
+              <i data-lucide="plus" class="w-3 h-3"></i> スタイル追加
+            </button>
+          </div>
+          <div id="tone-list" class="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Right Column: 生成・プレビュー・エクスポート (7 Cols) -->
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- 元テキスト確認エリア -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-slate-700"></i>
+              <h2 class="text-sm font-bold text-slate-900">
+                📄 読み込みテキストの確認・編集
+              </h2>
+            </div>
+            <span class="text-xs text-indigo-600 font-bold" id="extracted-char-count">0 文字</span>
+          </div>
+          <textarea id="extracted-source-preview" placeholder="添付ファイルを選択するか、テキストを入力するとここに自動反映されます。" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 h-28 text-xs text-slate-800 font-sans focus:bg-white focus:outline-none focus:border-indigo-600 transition-all leading-relaxed"></textarea>
+        </section>
+
+        <!-- スライド作成メインアクション -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">
+                ✨ スライド作成を実行
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">文章やファイルを読み込み、AIが自動で構成・デザインを完成させます</p>
+            </div>
+            <button id="btn-run-step1-direct" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-98 transition-all">
+              <i data-lucide="sparkles" class="w-4 h-4 text-yellow-300"></i> ✨ スライドを自動生成する
+            </button>
+          </div>
+
+          <div id="status-step1-direct" class="hidden p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-900 flex items-center gap-2 animate-pulse">
+            <i data-lucide="loader" class="w-4 h-4 animate-spin text-indigo-600"></i>
+            <span id="pipeline-status-msg">文章の分析とスライド構成を作成中...</span>
+          </div>
+          
+          <div id="validation-report" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 text-slate-600">
+            <p>※ 生成結果のチェックとレイアウトの最適化が自動で行われます。</p>
+          </div>
+
+          <!-- 詳細データ非表示/折りたたみ化 (内部用) -->
+          <details class="text-xs text-slate-400">
+            <summary class="cursor-pointer hover:text-slate-600 transition-colors font-medium">詳細データ (構造JSON) を確認する</summary>
+            <div class="mt-2 space-y-2">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                <span>スライド構成データ (JSON)</span>
+                <span id="pass-b-log-tag" class="text-indigo-600 font-bold">状態: 準備完了</span>
+              </div>
+              <textarea id="json-output" placeholder='{ "meta": {}, "slides": [] }' class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 h-36 text-xs text-emerald-400 font-mono focus:outline-none focus:border-indigo-500 leading-relaxed"></textarea>
+              <div class="flex justify-end gap-2">
+                <button id="btn-generate-mock-json" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-xs">見本データ</button>
+                <button id="btn-run-step2-val" class="px-2.5 py-1 bg-slate-800 text-white rounded text-xs font-bold">手動再検証</button>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <!-- スライド プレビュー ＆ エクスポート -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="monitor" class="w-5 h-5 text-indigo-600"></i> スライドのプレビュー確認
+            </h2>
+            <button id="btn-render-preview" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors border border-slate-200">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> プレビュー再表示
+            </button>
+          </div>
+
+          <!-- スライド画像表示エリア -->
+          <div id="slide-preview-container" class="space-y-6 max-h-[600px] overflow-y-auto pr-2 p-4 bg-slate-100/70 rounded-xl border border-slate-200">
+            <div class="text-center py-20 text-slate-400 text-xs">
+              <i data-lucide="presentation" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+              「✨ スライドを自動生成する」ボタンを押すと、ここに完成したスライドが表示されます。
+            </div>
+          </div>
+
+          <!-- エクスポートボタン -->
+          <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+              PowerPointファイルとして書き出してそのままプレゼンに使用できます
+            </div>
+            <button id="btn-export-pptx" class="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-md active:scale-98 transition-all">
+              <i data-lucide="download" class="w-5 h-5 text-emerald-400"></i>
+              PowerPoint (.pptx) を保存する
+            </button>
+          </div>
+        </section>
+
+      </div>
+      
+    </div>
+  </main>
+
+  <!-- トンマナ追加・編集 モーダル -->
+  <div id="modal-tone" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden transition-all duration-300 opacity-0">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-lg w-full mx-4 shadow-2xl p-6 transform scale-95 transition-all duration-300">
+      <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+        <h3 id="modal-tone-title" class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="palette" class="w-5 h-5 text-indigo-600"></i> スタイルの追加
+        </h3>
+        <button id="btn-close-modal-tone" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-tone" class="space-y-4">
+        <input type="hidden" id="edit-tone-id">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">スタイル名</label>
+          <input type="text" id="tone-name" placeholder="例: 社内プレゼン用" required class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 transition-colors">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">文章の雰囲気・文体</label>
+          <textarea id="tone-style" rows="2" placeholder="例: です・ます調。分かりやすい言葉で簡潔に。" required class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 transition-colors"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">テーマカラー</label>
+          <input type="color" id="tone-color" value="#2563EB" class="w-full h-9 bg-white border border-slate-200 rounded-lg cursor-pointer">
+        </div>
+        <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+          <button type="button" id="btn-cancel-tone" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm transition-colors">キャンセル</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-colors">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 設定 モーダル -->
+  <div id="modal-settings" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden transition-all duration-300 opacity-0">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full mx-4 shadow-2xl p-6 transform scale-95 transition-all duration-300">
+      <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="settings" class="w-5 h-5 text-indigo-600"></i> システム設定 (APIキー管理)
+        </h3>
+        <button id="btn-close-modal-settings" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs text-slate-700">
+        <div class="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+          <div>
+            <label class="block font-bold text-slate-800 mb-1">Google Gemini APIキー</label>
+            <input type="password" id="admin-gemini-key" placeholder="AIzaSy..." class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-600">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-800 mb-1">OpenAI APIキー</label>
+            <input type="password" id="admin-openai-key" placeholder="sk-proj-..." class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-600">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">AIモデル選択 A</label>
+            <select id="setting-provider-passA" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800">
+              <option value="auto">✨ 自動選択 (Gemini優先)</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="openai">OpenAI (GPT)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">AIモデル選択 B</label>
+            <select id="setting-provider-passB" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800">
+              <option value="auto">✨ 自動選択 (OpenAI優先)</option>
+              <option value="openai">OpenAI (GPT)</option>
+              <option value="gemini">Google Gemini</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">OpenAI モデル</label>
+            <select id="setting-openai-model-passB" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800">
+              <option value="gpt-4o-mini">gpt-4o-mini (標準)</option>
+              <option value="gpt-4o">gpt-4o (高精度)</option>
+            </select>
+          </div>
+        </div>
+
+        <details class="text-slate-500">
+          <summary class="cursor-pointer font-medium hover:text-slate-800">高度な設定 (スライドスキーマ定義)</summary>
+          <textarea id="schema-editor" rows="5" class="w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-emerald-400 font-mono leading-relaxed"></textarea>
+        </details>
+
+        <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+          <button id="btn-reset-schema" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs transition-colors">初期設定に戻す</button>
+          <div class="flex space-x-3">
+            <button id="btn-cancel-settings" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm transition-colors">キャンセル</button>
+            <button id="btn-save-settings" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-colors">設定を保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-16 border-t border-slate-200 py-8 text-center text-xs text-slate-500 max-w-7xl mx-auto px-4">
+    <p>© 2026 資料作成システム</p>
+  </footer>
+
+  <!-- Core JavaScript -->
+  <script src="app.js"></script>
+</body>
+</html>
